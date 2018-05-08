@@ -1,1 +1,4 @@
+.bundle
+Gemfile.lock
+vendor
 virtualenv
