@@ -1,0 +1,43 @@
+---
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: stacks/elbasgrds/elbasgrds.yaml
+
+
+Parameters:
+  S3Url:
+    Type: String
+  Env:
+    Type: String
+  VpcCidr:
+    Type: String
+  VpcAvailabilityZones:
+    Type: String
+  VpcSubnetPublicCidrs:
+    Type: String
+  VpcSubnetAppCidrs:
+    Type: String
+  VpcSubnetDataCidrs:
+    Type: String
+  Tags:
+    Type: String
+
+
+Resources:
+  Vpc:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3Url}/modules/vpc/vpc.yaml
+      Parameters:
+        Name: !Sub elbasgrds-${Env}
+        VpcCidr: !Ref VpcCidr
+        VpcAvailabilityZones: !Ref VpcAvailabilityZones
+        VpcSubnetPublicCidrs: !Ref VpcSubnetPublicCidrs
+        VpcSubnetAppCidrs: !Ref VpcSubnetAppCidrs
+        VpcSubnetDataCidrs: !Ref VpcSubnetDataCidrs
+        Tags: !Ref Tags
+
+
+Outputs:
+  VpcId:
+    Value: !GetAtt Vpc.Outputs.VpcId

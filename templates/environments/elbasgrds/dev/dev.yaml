@@ -1,0 +1,30 @@
+---
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: environments/elbasgrds/dev/dev.yaml
+
+
+Parameters:
+  S3Url:
+    Type: String
+
+
+Resources:
+  Elbasgrds:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub ${S3Url}/stacks/elbasgrds/elbasgrds.yaml
+      Parameters:
+        S3Url: !Ref S3Url
+        Env: dev
+        VpcCidr: 10.0.0.0/16
+        VpcAvailabilityZones: eu-west-1a,eu-west-1b
+        VpcSubnetPublicCidrs: 10.0.1.0/24,10.0.2.0/24
+        VpcSubnetAppCidrs: 10.0.4.0/24,10.0.5.0/24
+        VpcSubnetDataCidrs: 10.0.7.0/24,10.0.8.0/24
+        Tags: Todo
+
+
+Outputs:
+  VpcId:
+    Value: !GetAtt Elbasgrds.Outputs.VpcId

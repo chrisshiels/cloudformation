@@ -1,0 +1,262 @@
+---
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: modules/vpc/vpc.yaml
+
+
+Parameters:
+  Name:
+    Type: String
+  VpcCidr:
+    Type: String
+  VpcAvailabilityZones:
+    Type: String
+  VpcSubnetPublicCidrs:
+    Type: String
+  VpcSubnetAppCidrs:
+    Type: String
+  VpcSubnetDataCidrs:
+    Type: String
+  Tags:
+    Type: String
+
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub vpc-${Name}
+  SnPublic1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Select [ 0, !Split [ ',', !Ref VpcSubnetPublicCidrs ] ]
+      AvailabilityZone: !Select [ 0, !Split [ ',', !Ref VpcAvailabilityZones ] ]
+      MapPublicIpOnLaunch: True
+      Tags:
+      - Key: Name
+        Value: !Sub sn-${Name}-public-1
+  SnPublic2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Select [ 1, !Split [ ',', !Ref VpcSubnetPublicCidrs ] ]
+      AvailabilityZone: !Select [ 1, !Split [ ',', !Ref VpcAvailabilityZones ] ]
+      MapPublicIpOnLaunch: True
+      Tags:
+      - Key: Name
+        Value: !Sub sn-${Name}-public-2
+  SnApp1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Select [ 0, !Split [ ',', !Ref VpcSubnetAppCidrs ] ]
+      AvailabilityZone: !Select [ 0, !Split [ ',', !Ref VpcAvailabilityZones ] ]
+      MapPublicIpOnLaunch: False
+      Tags:
+      - Key: Name
+        Value: !Sub sn-${Name}-app-1
+  SnApp2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Select [ 1, !Split [ ',', !Ref VpcSubnetAppCidrs ] ]
+      AvailabilityZone: !Select [ 1, !Split [ ',', !Ref VpcAvailabilityZones ] ]
+      MapPublicIpOnLaunch: False
+      Tags:
+      - Key: Name
+        Value: !Sub sn-${Name}-app-2
+  SnData1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Select [ 0, !Split [ ',', !Ref VpcSubnetDataCidrs ] ]
+      AvailabilityZone: !Select [ 0, !Split [ ',', !Ref VpcAvailabilityZones ] ]
+      MapPublicIpOnLaunch: False
+      Tags:
+      - Key: Name
+        Value: !Sub sn-${Name}-data-1
+  SnData2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Select [ 1, !Split [ ',', !Ref VpcSubnetDataCidrs ] ]
+      AvailabilityZone: !Select [ 1, !Split [ ',', !Ref VpcAvailabilityZones ] ]
+      MapPublicIpOnLaunch: False
+      Tags:
+      - Key: Name
+        Value: !Sub sn-${Name}-data-2
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub igw-${Name}
+  IgwAtt:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref Igw
+      VpcId: !Ref Vpc
+  Eip1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+    DependsOn: Igw
+  Eip2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+    DependsOn: Igw
+  Nat1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt Eip1.AllocationId
+      SubnetId: !Ref SnPublic1
+      Tags:
+      - Key: Name
+        Value: !Sub nat-${Name}-1
+  Nat2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt Eip2.AllocationId
+      SubnetId: !Ref SnPublic2
+      Tags:
+      - Key: Name
+        Value: !Sub nat-${Name}-2
+  RtbPublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub rtb-${Name}-public
+  RoutePublicDefault:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RtbPublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+  RouteTableAssociationPublicSnPublic1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RtbPublic
+      SubnetId: !Ref SnPublic1
+  RouteTableAssociationPublicSnPublic2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RtbPublic
+      SubnetId: !Ref SnPublic2
+  RtbAppSnApp1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub rtb-${Name}-app-1
+  RouteAppSnApp1Default:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RtbAppSnApp1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref Nat1
+  RouteTableAssociationAppSnApp1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RtbAppSnApp1
+      SubnetId: !Ref SnApp1
+  RtbAppSnApp2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub rtb-${Name}-app-2
+  RouteAppSnApp2Default:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RtbAppSnApp2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref Nat2
+  RouteTableAssociationAppSnApp2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RtbAppSnApp2
+      SubnetId: !Ref SnApp2
+  RtbDataSnData1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub rtb-${Name}-data-1
+  RouteDataSnData1Default:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RtbDataSnData1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref Nat1
+  RouteTableAssociationDataSnData1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RtbDataSnData1
+      SubnetId: !Ref SnData1
+  RtbDataSnData2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub rtb-${Name}-data-2
+  RouteDataSnData2Default:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RtbDataSnData2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref Nat2
+  RouteTableAssociationDataSnData2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RtbDataSnData2
+      SubnetId: !Ref SnData2
+
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+  SnPublic1Id:
+    Value: !Ref SnPublic1
+  SnPublic2Id:
+    Value: !Ref SnPublic2
+  SnApp1Id:
+    Value: !Ref SnApp1
+  SnApp2Id:
+    Value: !Ref SnApp2
+  SnData1Id:
+    Value: !Ref SnData1
+  SnData2Id:
+    Value: !Ref SnData2
+  IgwId:
+    Value: !Ref Igw
+  Eip1Id:
+    Value: !Ref Eip1
+  Eip2Id:
+    Value: !Ref Eip2
+  Nat1Id:
+    Value: !Ref Nat1
+  Nat2Id:
+    Value: !Ref Nat2
+  RtbPublicId:
+    Value: !Ref RtbPublic
+  RtbAppSnApp1:
+    Value: !Ref RtbAppSnApp1
+  RtbAppSnApp2:
+    Value: !Ref RtbAppSnApp2
+  RtbDataSnData1:
+    Value: !Ref RtbDataSnData1
+  RtbDataSnData2:
+    Value: !Ref RtbDataSnData2
